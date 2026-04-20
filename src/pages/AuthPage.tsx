@@ -171,9 +171,7 @@ const AuthPage = () => {
                   {loading ? "Signing in…" : "Sign In →"}
                 </button>
               </form>
-              <p className="text-center text-xs text-foreground/30 mt-6">
-                Admin? Use <span className="font-mono">admin@driveharambee.co.ke</span> / <span className="font-mono">admin123</span>
-              </p>
+              
             </>
           ) : step === 1 ? (
             <>
