@@ -14,16 +14,389 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          entity: string | null
+          entity_id: string | null
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      bookings: {
+        Row: {
+          admin_notes: string | null
+          car_id: string | null
+          car_name: string
+          car_slug: string | null
+          created_at: string
+          end_date: string
+          id: string
+          num_days: number
+          payment_method: string | null
+          payment_ref: string | null
+          pickup_location: string | null
+          price_per_day: number
+          return_condition: string | null
+          return_notes: string | null
+          returned_at: string | null
+          start_date: string
+          status: string
+          total_price: number
+          updated_at: string
+          user_email: string
+          user_id: string
+          user_id_image_url: string | null
+          user_id_number: string | null
+          user_license_image_url: string | null
+          user_license_number: string | null
+          user_name: string
+          user_phone: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          car_id?: string | null
+          car_name: string
+          car_slug?: string | null
+          created_at?: string
+          end_date: string
+          id?: string
+          num_days: number
+          payment_method?: string | null
+          payment_ref?: string | null
+          pickup_location?: string | null
+          price_per_day: number
+          return_condition?: string | null
+          return_notes?: string | null
+          returned_at?: string | null
+          start_date: string
+          status?: string
+          total_price: number
+          updated_at?: string
+          user_email: string
+          user_id: string
+          user_id_image_url?: string | null
+          user_id_number?: string | null
+          user_license_image_url?: string | null
+          user_license_number?: string | null
+          user_name: string
+          user_phone?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          car_id?: string | null
+          car_name?: string
+          car_slug?: string | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          num_days?: number
+          payment_method?: string | null
+          payment_ref?: string | null
+          pickup_location?: string | null
+          price_per_day?: number
+          return_condition?: string | null
+          return_notes?: string | null
+          returned_at?: string | null
+          start_date?: string
+          status?: string
+          total_price?: number
+          updated_at?: string
+          user_email?: string
+          user_id?: string
+          user_id_image_url?: string | null
+          user_id_number?: string | null
+          user_license_image_url?: string | null
+          user_license_number?: string | null
+          user_name?: string
+          user_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_car_id_fkey"
+            columns: ["car_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_cars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fleet_cars: {
+        Row: {
+          available: boolean
+          category: string
+          created_at: string
+          description: string | null
+          features: string[]
+          id: string
+          image_url: string | null
+          name: string
+          price_per_day: number
+          series: string | null
+          slug: string
+          spec_hp: string | null
+          spec_top: string | null
+          spec_zero: string | null
+          updated_at: string
+        }
+        Insert: {
+          available?: boolean
+          category: string
+          created_at?: string
+          description?: string | null
+          features?: string[]
+          id?: string
+          image_url?: string | null
+          name: string
+          price_per_day: number
+          series?: string | null
+          slug: string
+          spec_hp?: string | null
+          spec_top?: string | null
+          spec_zero?: string | null
+          updated_at?: string
+        }
+        Update: {
+          available?: boolean
+          category?: string
+          created_at?: string
+          description?: string | null
+          features?: string[]
+          id?: string
+          image_url?: string | null
+          name?: string
+          price_per_day?: number
+          series?: string | null
+          slug?: string
+          spec_hp?: string | null
+          spec_top?: string | null
+          spec_zero?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      market_listings: {
+        Row: {
+          admin_notes: string | null
+          asking_price: number
+          created_at: string
+          description: string | null
+          id: string
+          image_urls: string[]
+          make: string
+          mileage: string | null
+          model: string
+          seller_email: string
+          seller_id: string | null
+          seller_name: string
+          seller_phone: string
+          status: string
+          updated_at: string
+          year: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          asking_price: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_urls?: string[]
+          make: string
+          mileage?: string | null
+          model: string
+          seller_email: string
+          seller_id?: string | null
+          seller_name: string
+          seller_phone: string
+          status?: string
+          updated_at?: string
+          year: string
+        }
+        Update: {
+          admin_notes?: string | null
+          asking_price?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_urls?: string[]
+          make?: string
+          mileage?: string | null
+          model?: string
+          seller_email?: string
+          seller_id?: string | null
+          seller_name?: string
+          seller_phone?: string
+          status?: string
+          updated_at?: string
+          year?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          id_image_url: string | null
+          id_number: string | null
+          license_image_url: string | null
+          license_number: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          id_image_url?: string | null
+          id_number?: string | null
+          license_image_url?: string | null
+          license_number?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          id_image_url?: string | null
+          id_number?: string | null
+          license_image_url?: string | null
+          license_number?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_records: {
+        Row: {
+          car_id: string
+          id: string
+          last_service_date: string | null
+          next_service_date: string | null
+          service_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          car_id: string
+          id?: string
+          last_service_date?: string | null
+          next_service_date?: string | null
+          service_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          car_id?: string
+          id?: string
+          last_service_date?: string | null
+          next_service_date?: string | null
+          service_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_records_car_id_fkey"
+            columns: ["car_id"]
+            isOneToOne: true
+            referencedRelation: "fleet_cars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_aal2: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "client"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +523,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "client"],
+    },
   },
 } as const
