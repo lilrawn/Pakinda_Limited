@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design tokens ────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Warm parchment light theme */
+    --background: 40 18% 92%;
+    --foreground: 30 10% 8%;
+
+    --surface: 38 14% 87%;
+    --surface-deep: 35 12% 78%;
+
+    --steel: 38 45% 52%;           /* Kenyan gold accent */
+
+    --card: 40 18% 92%;
+    --card-foreground: 30 10% 8%;
+
+    --popover: 40 18% 92%;
+    --popover-foreground: 30 10% 8%;
+
+    --primary: 30 10% 8%;
+    --primary-foreground: 40 18% 92%;
+
+    --secondary: 38 14% 87%;
+    --secondary-foreground: 30 10% 8%;
+
+    --muted: 38 14% 87%;
+    --muted-foreground: 30 6% 45%;
+
+    --accent: 38 14% 87%;
+    --accent-foreground: 30 10% 8%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 30 8% 82%;
+    --input: 30 8% 82%;
+    --ring: 38 45% 52%;
+
+    --radius: 0.5rem;
+
+    /* Custom gradients and shadows */
+    --gradient-vault: linear-gradient(160deg, hsl(38 20% 88%) 0%, hsl(35 16% 82%) 100%);
+    --shadow-vault: 0 -20px 80px -20px rgba(180, 140, 60, 0.12), 0 0 0 1px rgba(180,140,60,0.06);
+    --shadow-soft: 0 4px 40px rgba(0,0,0,0.06);
+  }
+}
+
+/* ─── Base resets ───────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-weight: 300;
+  }
+}
+
+/* ─── Typography ────────────────────────────────────────────────── */
+@layer base {
+  .font-display {
+    font-family: 'Georgia', 'Palatino Linotype', 'Book Antiqua', serif;
+    font-weight: 300;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ─── Utility classes ───────────────────────────────────────────── */
+@layer components {
+  /* Eyebrow label */
+  .eyebrow {
+    @apply text-[10px] uppercase tracking-[0.3em] font-medium;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: hsl(var(--foreground) / 0.55);
+  }
+
+  /* Hairline divider */
+  .hairline {
+    @apply w-full h-px;
+    background: hsl(var(--foreground) / 0.1);
+  }
+
+  /* Primary CTA button */
+  .btn-vault {
+    @apply px-8 py-4 text-[10px] uppercase tracking-[0.3em] font-medium transition-all duration-500;
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+  .btn-vault:hover {
+    background: hsl(var(--foreground) / 0.85);
+  }
+
+  /* Ghost button */
+  .btn-ghost-vault {
+    @apply px-8 py-4 text-[10px] uppercase tracking-[0.3em] font-medium border transition-all duration-500;
+    border-color: hsl(var(--foreground) / 0.2);
+    color: hsl(var(--foreground) / 0.7);
+  }
+  .btn-ghost-vault:hover {
+    border-color: hsl(var(--foreground) / 0.5);
+    color: hsl(var(--foreground));
+  }
+
+  /* Surface background */
+  .bg-surface {
+    background-color: hsl(var(--surface));
+  }
+  .bg-surface-deep {
+    background-color: hsl(var(--surface-deep));
+  }
+
+  /* Steel colour */
+  .text-steel {
+    color: hsl(var(--steel));
+  }
+  .bg-steel {
+    background-color: hsl(var(--steel));
+  }
+  .border-steel {
+    border-color: hsl(var(--steel));
+  }
+}
+
+/* ─── Animations ────────────────────────────────────────────────── */
+@layer utilities {
+  /* Fade up entrance */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-up {
+    animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Car drive across screen */
+  @keyframes drive {
+    0%   { transform: translateX(110vw) scaleX(1); }
+    100% { transform: translateX(-110vw) scaleX(1); }
+  }
+  .animate-drive {
+    animation: drive 3.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation-delay: 0.3s;
+  }
+
+  /* Brand text reveal */
+  @keyframes brand {
+    0%   { opacity: 0; transform: translateY(12px); }
+    30%  { opacity: 1; transform: translateY(0); }
+    70%  { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-8px); }
+  }
+  .animate-brand {
+    animation: brand 3.8s ease-in-out forwards;
+    animation-delay: 0.8s;
+  }
+
+  /* Road streak */
+  @keyframes road {
+    0%   { transform: translateY(60%) scaleX(0); transform-origin: left; }
+    50%  { transform: translateY(60%) scaleX(1); transform-origin: left; }
+    100% { transform: translateY(60%) scaleX(0); transform-origin: right; }
+  }
+  .animate-road {
+    animation: road 3.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation-delay: 0.2s;
+  }
+
+  /* Intro overlay fade out */
+  @keyframes introOut {
+    0%   { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { opacity: 0; pointer-events: none; }
+  }
+  .animate-intro-out {
+    animation: introOut 4.3s ease-in-out forwards;
+  }
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: hsl(var(--background)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--foreground) / 0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--foreground) / 0.3); }
+
+/* ─── Selection ─────────────────────────────────────────────────── */
+::selection {
+  background: hsl(var(--steel) / 0.25);
+  color: hsl(var(--foreground));
+}
