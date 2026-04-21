@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Car, fleet as initialFleet } from "@/data/fleet";
 import { supabase, uploadFile, uploadBase64, sendNotification, createInAppNotification } from "@/lib/supabase";
+import { lovable } from "@/integrations/lovable";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface User {
@@ -165,8 +166,8 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const loginWithGoogle = useCallback(async()=>{
     if(ready){
-      const {error}=await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${window.location.origin}/auth/callback`}});
-      if(error) return {success:false,error:error.message};
+      const result = await lovable.auth.signInWithOAuth("google",{ redirect_uri: window.location.origin });
+      if(result.error) return {success:false,error:result.error instanceof Error ? result.error.message : String(result.error)};
       return {success:true};
     }
     const m:User={id:uid(),name:"Google User",email:`g.${Date.now()}@gmail.com`,phone:"",idNumber:"",licenseNumber:"",idImageUrl:"",licenseImageUrl:"",role:"client",createdAt:new Date().toISOString()};
