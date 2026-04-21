@@ -9,14 +9,25 @@ import FleetDetail from "./pages/FleetDetail.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
 import CarMarket from "./pages/market/CarMarket.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
+import AccountMfa from "./pages/AccountMfa.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useApp();
+  const [aal, setAal] = useState<string | null | "loading">("loading");
+  useEffect(() => {
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data }) => {
+      setAal(data?.currentLevel ?? null);
+    });
+  }, [currentUser?.id]);
   if (!currentUser) return <Navigate to="/auth" replace />;
   if (currentUser.role !== "admin") return <Navigate to="/" replace />;
+  if (aal === "loading") return null;
+  if (aal !== "aal2") return <Navigate to="/account/mfa" replace />;
   return <>{children}</>;
 };
 
@@ -26,6 +37,7 @@ const AppRoutes = () => (
       <Route path="/" element={<Index />} />
       <Route path="/fleet/:slug" element={<FleetDetail />} />
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/account/mfa" element={<AccountMfa />} />
       <Route path="/market" element={<CarMarket />} />
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />
