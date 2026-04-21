@@ -52,15 +52,15 @@ const AuthPage = () => {
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
     setError(""); setLoading(true);
-    setTimeout(() => {
-      const result = login(email, password);
+    (async () => {
+      const result = await login(email, password);
       setLoading(false);
       if (result.success) {
         navigate(carSlug ? `/fleet/${carSlug}` : returnTo, { replace: true });
       } else {
         setError(result.error || "Sign in failed.");
       }
-    }, 600);
+    })();
   };
 
   const handleSignUpStep1 = (e: React.FormEvent) => {
@@ -87,8 +87,8 @@ const AuthPage = () => {
       name, email: signupEmail, phone, password: signupPassword,
       idNumber, licenseNumber, idImageUrl, licenseImageUrl,
     };
-    setTimeout(() => {
-      const result = signup(data);
+    (async () => {
+      const result = await signup(data);
       setLoading(false);
       if (result.success) {
         navigate(carSlug ? `/fleet/${carSlug}` : returnTo, { replace: true });
@@ -96,7 +96,7 @@ const AuthPage = () => {
         setError(result.error || "Sign up failed.");
         setStep(1);
       }
-    }, 800);
+    })();
   };
 
   const handleGoogle = () => {
