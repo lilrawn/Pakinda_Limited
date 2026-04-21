@@ -110,8 +110,12 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   // Check Supabase
   useEffect(()=>{
-    supabase.from("fleet_cars").select("id").limit(1)
-      .then(({error})=>{ if(!error) setReady(true); }).catch(()=>{});
+    (async () => {
+      try {
+        const { error } = await supabase.from("fleet_cars").select("id").limit(1);
+        if (!error) setReady(true);
+      } catch { /* ignore */ }
+    })();
   },[]);
 
   // Load from Supabase
