@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp, FleetCar, Booking, ServiceRecord, MarketListing } from "@/context/AppContext";
+import BookingChat from "@/components/BookingChat";
 
 type AdminTab = "overview" | "fleet" | "bookings" | "history" | "service" | "market" | "notifications";
 
@@ -350,14 +351,19 @@ const BookingsTab = () => {
 
 const BookingCard = ({booking:b,onUpdate}:{booking:Booking;onUpdate:(id:string,d:Partial<Booking>)=>Promise<void>}) => {
   const [expanded,setExpanded]=useState(false);
+  const { unreadMessagesByBooking } = useApp();
+  const [chatOpen,setChatOpen]=useState(false);
+  const unread = unreadMessagesByBooking[b.id]||0;
   return (
     <div className="bg-[#0f0e0d] border border-white/5 rounded-xl overflow-hidden">
+      {chatOpen && <BookingChat bookingId={b.id} otherPartyName={b.userName} onClose={()=>setChatOpen(false)}/>}
       <div className="flex items-center justify-between p-5 cursor-pointer hover:bg-white/[0.02]" onClick={()=>setExpanded(!expanded)}>
         <div className="flex items-center gap-4">
           <div className={`w-2 h-2 rounded-full ${b.status==="active"?"bg-green-400":"bg-amber-400"}`}/>
           <div><p className="text-white font-medium">{b.carName}</p><p className="text-white/40 text-xs">{b.userName} · {fmtDate(b.startDate)} → {fmtDate(b.endDate)}</p></div>
         </div>
         <div className="flex items-center gap-4">
+          <span className={`text-[9px] uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${b.verificationStatus==="approved"?"bg-green-500/20 text-green-400":b.verificationStatus==="rejected"?"bg-red-500/20 text-red-400":"bg-amber-500/20 text-amber-400"}`}>{b.verificationStatus||"pending"}</span>
           <StatusBadge status={b.status}/>
           <span className="font-display text-lg" style={{color:"#c8a84b"}}>{fmtKES(b.totalPrice)}</span>
           <span className="text-white/30 text-sm">{expanded?"▲":"▼"}</span>
@@ -368,17 +374,30 @@ const BookingCard = ({booking:b,onUpdate}:{booking:Booking;onUpdate:(id:string,d
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <IR label="Client" value={b.userName}/> <IR label="Email" value={b.userEmail}/>
             <IR label="Phone" value={b.userPhone}/> <IR label="National ID" value={b.userIdNumber}/>
-            <IR label="License No." value={b.userLicenseNumber}/> <IR label="Payment" value={b.paymentMethod.replace("_"," ").toUpperCase()}/>
-            <IR label="Ref" value={b.paymentRef}/> <IR label="Pickup" value={b.pickupLocation}/>
+            <IR label="License No." value={b.userLicenseNumber}/> <IR label="Payment" value={(b.paymentMethod||"—").replace("_"," ").toUpperCase()}/>
+            <IR label="Ref" value={b.paymentRef||"—"}/> <IR label="Pickup" value={b.pickupLocation}/>
             <IR label="Booked" value={fmtDT(b.createdAt)}/>
           </div>
           {/* Doc previews */}
           {(b.userIdImageUrl||b.userLicenseImageUrl) && (
             <div className="flex gap-4 mt-2">
-              {b.userIdImageUrl&&<div><p className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-2">National ID</p><img src={b.userIdImageUrl} alt="ID" className="h-16 w-auto rounded border border-white/10 object-cover"/></div>}
-              {b.userLicenseImageUrl&&<div><p className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-2">Driver's License</p><img src={b.userLicenseImageUrl} alt="Lic" className="h-16 w-auto rounded border border-white/10 object-cover"/></div>}
+              {b.userIdImageUrl&&<a href={b.userIdImageUrl} target="_blank" rel="noopener noreferrer"><p className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-2">National ID (click to enlarge)</p><img src={b.userIdImageUrl} alt="ID" className="h-24 w-auto rounded border border-white/10 object-cover hover:opacity-80"/></a>}
+              {b.userLicenseImageUrl&&<a href={b.userLicenseImageUrl} target="_blank" rel="noopener noreferrer"><p className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-2">Driver's License (click to enlarge)</p><img src={b.userLicenseImageUrl} alt="Lic" className="h-24 w-auto rounded border border-white/10 object-cover hover:opacity-80"/></a>}
             </div>
           )}
+          {/* Verification controls */}
+          <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 mb-3">Document Verification</p>
+            <div className="flex flex-wrap gap-3">
+              <button onClick={()=>onUpdate(b.id,{verificationStatus:"approved",status:"active"})} disabled={b.verificationStatus==="approved"} className="px-4 py-2 text-black text-[10px] uppercase tracking-[0.2em] font-semibold rounded disabled:opacity-40" style={{background:"#22c55e"}}>✓ Approve & Activate</button>
+              <button onClick={()=>{const note=prompt("Reason for rejection (visible to client):"); if(note!==null) onUpdate(b.id,{verificationStatus:"rejected",status:"cancelled",verificationNotes:note});}} disabled={b.verificationStatus==="rejected"} className="px-4 py-2 border border-red-500/40 text-red-400 text-[10px] uppercase tracking-[0.2em] rounded disabled:opacity-40">✗ Reject</button>
+              <button onClick={()=>setChatOpen(true)} className="ml-auto px-4 py-2 border border-[#c8a84b]/40 text-[#c8a84b] text-[10px] uppercase tracking-[0.2em] rounded relative">
+                💬 Chat with Client
+                {unread>0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold">{unread}</span>}
+              </button>
+            </div>
+            {b.verificationNotes && <p className="text-white/40 text-xs mt-3">Note to client: <span className="text-white/70">{b.verificationNotes}</span></p>}
+          </div>
           <div className="flex gap-3 mt-2">
             <button onClick={()=>onUpdate(b.id,{status:"completed",returnedAt:new Date().toISOString()})} className="px-4 py-2 text-black text-[10px] uppercase tracking-[0.2em] font-semibold rounded" style={{background:"#c8a84b"}}>Mark Returned</button>
             <button onClick={()=>onUpdate(b.id,{status:"cancelled"})} className="px-4 py-2 border border-red-500/30 text-red-400/60 text-[10px] uppercase tracking-[0.2em] hover:text-red-400 transition-colors rounded">Cancel</button>
@@ -440,7 +459,7 @@ const HistoryTab = () => {
                       <IR label="Full Name" value={b.userName}/> <IR label="Email" value={b.userEmail}/>
                       <IR label="Phone" value={b.userPhone}/> <IR label="National ID" value={b.userIdNumber}/>
                       <IR label="License No." value={b.userLicenseNumber}/> <IR label="Pickup Location" value={b.pickupLocation}/>
-                      <IR label="Payment Method" value={b.paymentMethod.replace("_"," ").toUpperCase()}/> <IR label="Payment Ref" value={b.paymentRef}/>
+                      <IR label="Payment Method" value={(b.paymentMethod||"—").replace("_"," ").toUpperCase()}/> <IR label="Payment Ref" value={b.paymentRef||"—"}/>
                       <IR label="Booking Date" value={fmtDT(b.createdAt)}/>
                     </div>
 

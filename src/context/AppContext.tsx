@@ -21,10 +21,12 @@ export interface Booking {
   userIdImageUrl: string; userLicenseImageUrl: string;
   startDate: string; endDate: string; numDays: number;
   pricePerDay: number; totalPrice: number;
-  paymentMethod: PaymentMethod; paymentRef: string;
+  paymentMethod?: PaymentMethod | null; paymentRef?: string | null;
   status: BookingStatus; createdAt: string;
   returnedAt?: string; returnCondition?: string; returnNotes?: string; adminNotes?: string;
   pickupLocation: string;
+  verificationStatus: "pending" | "approved" | "rejected";
+  verificationNotes?: string | null;
 }
 export interface ServiceRecord {
   carId: string; lastServiceDate: string; nextServiceDate: string; serviceNotes: string;
@@ -41,6 +43,15 @@ export interface MarketListing {
 export interface AppNotification {
   id: string; userId: string; type: string;
   title: string; message: string; read: boolean; createdAt: string;
+}
+export interface Message {
+  id: string;
+  bookingId: string;
+  senderId: string;
+  senderRole: "client" | "admin";
+  body: string;
+  readByRecipient: boolean;
+  createdAt: string;
 }
 export interface SignupData {
   name: string; email: string; phone: string; password: string;
@@ -75,6 +86,14 @@ interface AppContextType {
   notifications: AppNotification[];
   markNotificationRead(id: string): Promise<void>;
   unreadCount: number;
+  // Messaging
+  messages: Message[];
+  loadBookingMessages(bookingId: string): Promise<void>;
+  sendMessage(bookingId: string, body: string): Promise<void>;
+  subscribeBookingMessages(bookingId: string): () => void;
+  getBookingMessages(bookingId: string): Message[];
+  unreadMessagesByBooking: Record<string, number>;
+  markBookingMessagesRead(bookingId: string): Promise<void>;
   supabaseReady: boolean;
 }
 
@@ -102,6 +121,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [bookings, setBookings] = useState<Booking[]>(()=>load("dh_bookings",[]));
   const [marketListings, setMarket] = useState<MarketListing[]>(()=>load("dh_market",[]));
   const [notifications, setNotifs] = useState<AppNotification[]>(()=>load("dh_notifs",[]));
+  const [messages, setMessages] = useState<Message[]>([]);
 
   useEffect(()=>{ save("dh_user",currentUser); },[currentUser]);
   useEffect(()=>{ save("dh_fleet",fleetCars); },[fleetCars]);
@@ -244,14 +264,14 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const createBooking = useCallback(async(b:Omit<Booking,"id"|"createdAt">)=>{
     const booking:Booking={...b,id:uid(),createdAt:new Date().toISOString()};
     if(ready){
-      const {data}=await supabase.from("bookings").insert({car_id:b.carId,car_name:b.carName,car_slug:b.carSlug,user_id:b.userId,user_name:b.userName,user_email:b.userEmail,user_phone:b.userPhone,user_id_number:b.userIdNumber,user_license_number:b.userLicenseNumber,user_id_image_url:b.userIdImageUrl,user_license_image_url:b.userLicenseImageUrl,start_date:b.startDate,end_date:b.endDate,num_days:b.numDays,price_per_day:b.pricePerDay,total_price:b.totalPrice,payment_method:b.paymentMethod,payment_ref:b.paymentRef,status:b.status,pickup_location:b.pickupLocation}).select().single();
+      const {data}=await supabase.from("bookings").insert({car_id:b.carId,car_name:b.carName,car_slug:b.carSlug,user_id:b.userId,user_name:b.userName,user_email:b.userEmail,user_phone:b.userPhone,user_id_number:b.userIdNumber,user_license_number:b.userLicenseNumber,user_id_image_url:b.userIdImageUrl,user_license_image_url:b.userLicenseImageUrl,start_date:b.startDate,end_date:b.endDate,num_days:b.numDays,price_per_day:b.pricePerDay,total_price:b.totalPrice,payment_method:b.paymentMethod||null,payment_ref:b.paymentRef||null,status:b.status,pickup_location:b.pickupLocation,verification_status:b.verificationStatus||"pending"}).select().single();
       if(data){
         const saved=mapBooking(data); setBookings(p=>[saved,...p]);
-        await createInAppNotification("Pakinda","New Booking",`${b.userName} booked ${b.carName} · KES ${b.totalPrice.toLocaleString()}·${b.startDate}→${b.endDate}`,"booking");
-        await sendNotification({type:"email",to:"pakindalimited@gmail.com",subject:`New Booking: ${b.carName}`,message:`Client: ${b.userName}\nCar: ${b.carName}\nDates: ${b.startDate}→${b.endDate}\nAmount: KES ${b.totalPrice.toLocaleString()}\nPayment: ${b.paymentMethod}\nPickup: ${b.pickupLocation}\nID: ${b.userIdNumber}\nLicense: ${b.userLicenseNumber}`});
+        await createInAppNotification("Pakinda","New Booking · Verify Documents",`${b.userName} booked ${b.carName} · KES ${b.totalPrice.toLocaleString()} · ${b.startDate}→${b.endDate}. Documents pending verification.`,"booking");
+        await sendNotification({type:"email",to:"pakindalimited@gmail.com",subject:`New Booking — Verify: ${b.carName}`,message:`Client: ${b.userName}\nCar: ${b.carName}\nDates: ${b.startDate}→${b.endDate}\nAmount: KES ${b.totalPrice.toLocaleString()}\nPickup: ${b.pickupLocation}\nID: ${b.userIdNumber}\nLicense: ${b.userLicenseNumber}\n\nReview documents and accept/reject in the admin dashboard, then send the client payment instructions via the booking chat.`});
         await sendNotification({type:"sms",to:"+254706504698",message:`New booking: ${b.userName} · ${b.carName} · ${b.startDate}→${b.endDate} · KES ${b.totalPrice.toLocaleString()}`});
         await sendNotification({type:"whatsapp",to:"+254706504698",message:`🚗 *New Booking*\n${b.userName}\n${b.carName}\n${b.startDate}→${b.endDate}\nKES ${b.totalPrice.toLocaleString()}`});
-        await sendNotification({type:"email",to:b.userEmail,subject:"Booking Confirmed · Pakinda Limited",message:`Dear ${b.userName},\n\nYour booking for ${b.carName} is confirmed.\n\nDates: ${b.startDate}→${b.endDate}\nTotal: KES ${b.totalPrice.toLocaleString()}\nRef: ${saved.id.slice(0,8).toUpperCase()}\n\nWe'll contact you within 2 hours.`});
+        await sendNotification({type:"email",to:b.userEmail,subject:"Booking Received · Pakinda Limited",message:`Dear ${b.userName},\n\nWe've received your booking request for ${b.carName}.\n\nDates: ${b.startDate}→${b.endDate}\nTotal: KES ${b.totalPrice.toLocaleString()}\nRef: ${saved.id.slice(0,8).toUpperCase()}\n\nOur team is verifying your documents. Once approved, we'll contact you on the booking chat with payment instructions. You'll receive a notification.`});
         return saved;
       }
     }
@@ -259,9 +279,43 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   },[ready]);
 
   const updateBooking = useCallback(async(id:string,d:Partial<Booking>)=>{
-    if(ready) await supabase.from("bookings").update({status:d.status,returned_at:d.returnedAt,return_condition:d.returnCondition,return_notes:d.returnNotes,admin_notes:d.adminNotes}).eq("id",id);
+    if(ready){
+      const upd:Record<string,unknown>={};
+      if(d.status!==undefined) upd.status=d.status;
+      if(d.returnedAt!==undefined) upd.returned_at=d.returnedAt;
+      if(d.returnCondition!==undefined) upd.return_condition=d.returnCondition;
+      if(d.returnNotes!==undefined) upd.return_notes=d.returnNotes;
+      if(d.adminNotes!==undefined) upd.admin_notes=d.adminNotes;
+      if(d.verificationStatus!==undefined) upd.verification_status=d.verificationStatus;
+      if(d.verificationNotes!==undefined) upd.verification_notes=d.verificationNotes;
+      if(d.paymentMethod!==undefined) upd.payment_method=d.paymentMethod;
+      if(d.paymentRef!==undefined) upd.payment_ref=d.paymentRef;
+      if(Object.keys(upd).length>0) await supabase.from("bookings").update(upd).eq("id",id);
+      // Notify client on verification decision
+      if(d.verificationStatus==="approved"||d.verificationStatus==="rejected"){
+        const booking = bookings.find(b=>b.id===id);
+        if(booking){
+          await supabase.from("notifications").insert({
+            user_id: booking.userId,
+            type: "booking",
+            title: d.verificationStatus==="approved" ? "Booking Approved ✓" : "Booking Documents Rejected",
+            message: d.verificationStatus==="approved"
+              ? `Your booking for ${booking.carName} has been approved. Open the chat — the admin will send payment instructions.`
+              : `Your documents were rejected. ${d.verificationNotes||"Please contact the admin via chat."}`,
+            read: false,
+          });
+          await sendNotification({
+            type:"email", to: booking.userEmail,
+            subject: d.verificationStatus==="approved" ? "Booking Approved · Pakinda Limited" : "Action required on your booking",
+            message: d.verificationStatus==="approved"
+              ? `Hi ${booking.userName},\n\nGood news — your booking for ${booking.carName} (${booking.startDate} → ${booking.endDate}) has been approved.\n\nThe admin will message you in the booking chat with payment methods. Open https://pakinda.co.ke/account/bookings to view.\n\n— Pakinda Limited`
+              : `Hi ${booking.userName},\n\nUnfortunately your documents for the booking of ${booking.carName} were rejected.\n\nReason: ${d.verificationNotes||"Not specified"}\n\nPlease open the booking chat to resolve.\n\n— Pakinda Limited`,
+          });
+        }
+      }
+    }
     setBookings(p=>p.map(b=>b.id===id?{...b,...d}:b));
-  },[ready]);
+  },[ready,bookings]);
 
   const getCarBookings = useCallback((carId:string)=>bookings.filter(b=>b.carId===carId),[bookings]);
   const getUserBookings = useCallback((userId:string)=>bookings.filter(b=>b.userId===userId),[bookings]);
@@ -300,8 +354,79 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const unreadCount=notifications.filter(n=>!n.read).length;
 
+  // ── Messages ─────────────────────────────────────────────────────────────────
+  const loadBookingMessages = useCallback(async(bookingId:string)=>{
+    if(!ready) return;
+    const {data} = await supabase.from("messages").select("*").eq("booking_id",bookingId).order("created_at",{ascending:true});
+    if(data){
+      const mapped:Message[] = data.map(m=>({id:m.id,bookingId:m.booking_id,senderId:m.sender_id,senderRole:m.sender_role,body:m.body,readByRecipient:m.read_by_recipient,createdAt:m.created_at}));
+      setMessages(prev=>{
+        const without = prev.filter(p=>p.bookingId!==bookingId);
+        return [...without, ...mapped];
+      });
+    }
+  },[ready]);
+
+  const sendMessage = useCallback(async(bookingId:string,body:string)=>{
+    if(!currentUser||!body.trim()) return;
+    if(ready){
+      const {data,error} = await supabase.from("messages").insert({
+        booking_id:bookingId,
+        sender_id:currentUser.id,
+        sender_role:currentUser.role,
+        body:body.trim(),
+      }).select().single();
+      if(error){ console.warn("[messages] send failed",error); return; }
+      if(data){
+        const m:Message = {id:data.id,bookingId:data.booking_id,senderId:data.sender_id,senderRole:data.sender_role,body:data.body,readByRecipient:data.read_by_recipient,createdAt:data.created_at};
+        setMessages(prev=>prev.find(p=>p.id===m.id)?prev:[...prev,m]);
+      }
+    } else {
+      const m:Message = {id:uid(),bookingId,senderId:currentUser.id,senderRole:currentUser.role,body:body.trim(),readByRecipient:false,createdAt:new Date().toISOString()};
+      setMessages(prev=>[...prev,m]);
+    }
+  },[ready,currentUser]);
+
+  const subscribeBookingMessages = useCallback((bookingId:string)=>{
+    if(!ready) return ()=>{};
+    const ch = supabase.channel(`messages-${bookingId}`)
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`booking_id=eq.${bookingId}`},
+        (p)=>{
+          const r = p.new as Record<string,unknown>;
+          const m:Message = {id:r.id as string,bookingId:r.booking_id as string,senderId:r.sender_id as string,senderRole:r.sender_role as "client"|"admin",body:r.body as string,readByRecipient:r.read_by_recipient as boolean,createdAt:r.created_at as string};
+          setMessages(prev=>prev.find(x=>x.id===m.id)?prev:[...prev,m]);
+        })
+      .subscribe();
+    return ()=>{ supabase.removeChannel(ch); };
+  },[ready]);
+
+  const getBookingMessages = useCallback((bookingId:string)=>
+    messages.filter(m=>m.bookingId===bookingId).sort((a,b)=>a.createdAt.localeCompare(b.createdAt))
+  ,[messages]);
+
+  const markBookingMessagesRead = useCallback(async(bookingId:string)=>{
+    if(!ready||!currentUser) return;
+    // Mark messages from the OTHER side as read
+    const otherRole = currentUser.role==="admin" ? "client" : "admin";
+    await supabase.from("messages").update({read_by_recipient:true})
+      .eq("booking_id",bookingId).eq("sender_role",otherRole).eq("read_by_recipient",false);
+    setMessages(prev=>prev.map(m=>m.bookingId===bookingId&&m.senderRole===otherRole?{...m,readByRecipient:true}:m));
+  },[ready,currentUser]);
+
+  const unreadMessagesByBooking = (() => {
+    const out:Record<string,number> = {};
+    if(!currentUser) return out;
+    const otherRole = currentUser.role==="admin" ? "client" : "admin";
+    for(const m of messages){
+      if(!m.readByRecipient && m.senderRole===otherRole){
+        out[m.bookingId] = (out[m.bookingId]||0)+1;
+      }
+    }
+    return out;
+  })();
+
   return (
-    <Ctx.Provider value={{currentUser,users,login,loginWithGoogle,signup,logout,updateUser,fleetCars,addCar,updateCar,removeCar,getBookedDates,bookings,createBooking,updateBooking,getCarBookings,getUserBookings,updateServiceRecord,getRevenue,getCarRevenue,marketListings,submitMarketListing,updateMarketListing,notifications,markNotificationRead,unreadCount,supabaseReady:ready}}>
+    <Ctx.Provider value={{currentUser,users,login,loginWithGoogle,signup,logout,updateUser,fleetCars,addCar,updateCar,removeCar,getBookedDates,bookings,createBooking,updateBooking,getCarBookings,getUserBookings,updateServiceRecord,getRevenue,getCarRevenue,marketListings,submitMarketListing,updateMarketListing,notifications,markNotificationRead,unreadCount,messages,loadBookingMessages,sendMessage,subscribeBookingMessages,getBookingMessages,unreadMessagesByBooking,markBookingMessagesRead,supabaseReady:ready}}>
       {children}
     </Ctx.Provider>
   );
@@ -310,5 +435,5 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 function mapUser(u:Record<string,unknown>):User{ return {id:u.id as string,name:u.name as string,email:u.email as string,phone:(u.phone as string)||"",idNumber:(u.id_number as string)||"",licenseNumber:(u.license_number as string)||"",idImageUrl:(u.id_image_url as string)||"",licenseImageUrl:(u.license_image_url as string)||"",role:(u.role as "client"|"admin")||"client",createdAt:u.created_at as string}; }
 function mapCar(c:Record<string,unknown>):FleetCar{ return {id:c.id as string,slug:c.slug as string,name:c.name as string,series:(c.series as string)||"",category:c.category as FleetCar["category"],image:(c.image_url as string)||"",imageUrl:(c.image_url as string)||"",spec:{hp:(c.spec_hp as string)||"",top:(c.spec_top as string)||"",zero:(c.spec_zero as string)||""},pricePerDay:c.price_per_day as number,price:`KES ${(c.price_per_day as number)?.toLocaleString()}`,description:(c.description as string)||"",features:(c.features as string[])||[],available:c.available as boolean}; }
-function mapBooking(b:Record<string,unknown>):Booking{ return {id:b.id as string,carId:b.car_id as string,carName:b.car_name as string,carSlug:b.car_slug as string,userId:b.user_id as string,userName:b.user_name as string,userEmail:b.user_email as string,userPhone:b.user_phone as string,userIdNumber:b.user_id_number as string,userLicenseNumber:b.user_license_number as string,userIdImageUrl:b.user_id_image_url as string,userLicenseImageUrl:b.user_license_image_url as string,startDate:b.start_date as string,endDate:b.end_date as string,numDays:b.num_days as number,pricePerDay:b.price_per_day as number,totalPrice:b.total_price as number,paymentMethod:b.payment_method as PaymentMethod,paymentRef:b.payment_ref as string,status:b.status as BookingStatus,createdAt:b.created_at as string,returnedAt:(b.returned_at as string)||undefined,returnCondition:(b.return_condition as string)||undefined,returnNotes:(b.return_notes as string)||undefined,adminNotes:(b.admin_notes as string)||undefined,pickupLocation:b.pickup_location as string}; }
+function mapBooking(b:Record<string,unknown>):Booking{ return {id:b.id as string,carId:b.car_id as string,carName:b.car_name as string,carSlug:b.car_slug as string,userId:b.user_id as string,userName:b.user_name as string,userEmail:b.user_email as string,userPhone:b.user_phone as string,userIdNumber:b.user_id_number as string,userLicenseNumber:b.user_license_number as string,userIdImageUrl:b.user_id_image_url as string,userLicenseImageUrl:b.user_license_image_url as string,startDate:b.start_date as string,endDate:b.end_date as string,numDays:b.num_days as number,pricePerDay:b.price_per_day as number,totalPrice:b.total_price as number,paymentMethod:(b.payment_method as PaymentMethod)||null,paymentRef:(b.payment_ref as string)||null,status:b.status as BookingStatus,createdAt:b.created_at as string,returnedAt:(b.returned_at as string)||undefined,returnCondition:(b.return_condition as string)||undefined,returnNotes:(b.return_notes as string)||undefined,adminNotes:(b.admin_notes as string)||undefined,pickupLocation:b.pickup_location as string,verificationStatus:((b.verification_status as "pending"|"approved"|"rejected")||"pending"),verificationNotes:(b.verification_notes as string)||null}; }
 function mapListing(l:Record<string,unknown>):MarketListing{ return {id:l.id as string,sellerId:l.seller_id as string,sellerName:l.seller_name as string,sellerEmail:l.seller_email as string,sellerPhone:l.seller_phone as string,make:l.make as string,model:l.model as string,year:l.year as string,mileage:l.mileage as string,askingPrice:l.asking_price as number,description:l.description as string,imageUrls:(l.image_urls as string[])||[],status:l.status as ListingStatus,adminNotes:(l.admin_notes as string)||undefined,createdAt:l.created_at as string}; }

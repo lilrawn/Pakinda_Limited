@@ -71,6 +71,7 @@ const Navbar = () => {
                   <div className="px-4 py-3 border-b border-foreground/10">
                     <p className="text-xs text-foreground/50 truncate">{currentUser.email}</p>
                   </div>
+                  <Link to="/account/bookings" onClick={()=>setMenuOpen(false)} className="block px-4 py-3 text-xs uppercase tracking-[0.2em] text-foreground/60 hover:text-foreground hover:bg-surface transition-colors border-b border-foreground/10">My Bookings</Link>
                   <button onClick={() => { logout(); setMenuOpen(false); navigate("/"); }}
                     className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">Sign Out</button>
                 </div>
