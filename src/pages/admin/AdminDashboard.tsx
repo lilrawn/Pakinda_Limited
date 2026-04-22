@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp, FleetCar, Booking, ServiceRecord, MarketListing } from "@/context/AppContext";
+import BookingChat from "@/components/BookingChat";
 
 type AdminTab = "overview" | "fleet" | "bookings" | "history" | "service" | "market" | "notifications";
 
