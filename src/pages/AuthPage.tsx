@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useApp, SignupData } from "@/context/AppContext";
 import carHero from "@/assets/car-hero.png";
@@ -15,7 +15,6 @@ const AuthPage = () => {
   const [mode, setMode] = useState<Mode>((location.state as { mode?: Mode })?.mode || "signin");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1); // step 2 = upload docs
 
   // Sign in fields
   const [email, setEmail] = useState("");
@@ -27,27 +26,6 @@ const AuthPage = () => {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [idNumber, setIdNumber] = useState("");
-  const [licenseNumber, setLicenseNumber] = useState("");
-  const [idImageUrl, setIdImageUrl] = useState("");
-  const [licenseImageUrl, setLicenseImageUrl] = useState("");
-  const [idFileName, setIdFileName] = useState("");
-  const [licenseFileName, setLicenseFileName] = useState("");
-
-  const idRef = useRef<HTMLInputElement>(null);
-  const licenseRef = useRef<HTMLInputElement>(null);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "id" | "license") => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string;
-      if (type === "id") { setIdImageUrl(result); setIdFileName(file.name); }
-      else { setLicenseImageUrl(result); setLicenseFileName(file.name); }
-    };
-    reader.readAsDataURL(file);
-  };
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +41,7 @@ const AuthPage = () => {
     })();
   };
 
-  const handleSignUpStep1 = (e: React.FormEvent) => {
+  const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!name.trim()) { setError("Full name is required."); return; }
@@ -71,21 +49,10 @@ const AuthPage = () => {
     if (!phone.trim()) { setError("Phone number is required."); return; }
     if (signupPassword.length < 6) { setError("Password must be at least 6 characters."); return; }
     if (signupPassword !== confirmPassword) { setError("Passwords do not match."); return; }
-    setStep(2);
-  };
-
-  const handleSignUpStep2 = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!idNumber.trim()) { setError("National ID number is required."); return; }
-    if (!licenseNumber.trim()) { setError("Driver's license number is required."); return; }
-    if (!idImageUrl) { setError("Please upload your National ID."); return; }
-    if (!licenseImageUrl) { setError("Please upload your driver's license."); return; }
-
     setLoading(true);
     const data: SignupData = {
       name, email: signupEmail, phone, password: signupPassword,
-      idNumber, licenseNumber, idImageUrl, licenseImageUrl,
+      idNumber: "", licenseNumber: "", idImageUrl: "", licenseImageUrl: "",
     };
     (async () => {
       const result = await signup(data);
@@ -94,7 +61,6 @@ const AuthPage = () => {
         navigate(carSlug ? `/fleet/${carSlug}` : returnTo, { replace: true });
       } else {
         setError(result.error || "Sign up failed.");
-        setStep(1);
       }
     })();
   };
@@ -132,11 +98,11 @@ const AuthPage = () => {
           {/* Tab switcher */}
           <div className="flex border border-foreground/10 mb-10">
             <button
-              onClick={() => { setMode("signin"); setError(""); setStep(1); }}
+              onClick={() => { setMode("signin"); setError(""); }}
               className={`flex-1 py-3 text-[10px] uppercase tracking-[0.25em] font-medium transition-all ${mode === "signin" ? "bg-foreground text-background" : "text-foreground/50 hover:text-foreground"}`}
             >Sign In</button>
             <button
-              onClick={() => { setMode("signup"); setError(""); setStep(1); }}
+              onClick={() => { setMode("signup"); setError(""); }}
               className={`flex-1 py-3 text-[10px] uppercase tracking-[0.25em] font-medium transition-all ${mode === "signup" ? "bg-foreground text-background" : "text-foreground/50 hover:text-foreground"}`}
             >Create Account</button>
           </div>
@@ -156,70 +122,20 @@ const AuthPage = () => {
               </form>
               
             </>
-          ) : step === 1 ? (
+          ) : (
             <>
               <h1 className="font-display text-3xl mb-2">Create your account.</h1>
-              <p className="text-foreground/50 text-sm mb-8">Step 1 of 2 — Personal details</p>
+              <p className="text-foreground/50 text-sm mb-8">It only takes a minute. You'll upload ID & license documents later when you book your first vehicle.</p>
 
-              <form onSubmit={handleSignUpStep1} className="space-y-5">
+              <form onSubmit={handleSignUp} className="space-y-5">
                 <Field label="Full Name" value={name} onChange={setName} placeholder="e.g. Grace Wanjiku" />
                 <Field label="Email Address" type="email" value={signupEmail} onChange={setSignupEmail} placeholder="you@example.com" />
                 <Field label="WhatsApp / Phone" value={phone} onChange={setPhone} placeholder="+254 7XX XXX XXX" />
                 <Field label="Password" type="password" value={signupPassword} onChange={setSignupPassword} placeholder="Min. 6 characters" />
                 <Field label="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Repeat password" />
                 {error && <p className="text-red-500 text-xs">{error}</p>}
-                <button type="submit" className="w-full btn-vault mt-2">Continue → Upload Documents</button>
-              </form>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 mb-6">
-                <button onClick={() => setStep(1)} className="text-foreground/40 hover:text-foreground transition-colors text-sm">← Back</button>
-                <span className="text-foreground/20 text-sm">|</span>
-                <h1 className="font-display text-2xl">Documents</h1>
-              </div>
-              <p className="text-foreground/50 text-sm mb-8">
-                Step 2 of 2 — Required for all vehicle hires. Kept securely and confidentially.
-              </p>
-
-              <form onSubmit={handleSignUpStep2} className="space-y-6">
-                <Field label="National ID Number" value={idNumber} onChange={setIdNumber} placeholder="e.g. 12345678" />
-                <Field label="Driver's License Number" value={licenseNumber} onChange={setLicenseNumber} placeholder="e.g. DL-KE-9876" />
-
-                {/* ID Upload */}
-                <div>
-                  <label className="text-[10px] uppercase tracking-[0.25em] text-foreground/50 block mb-3">National ID · Photo Upload</label>
-                  <input ref={idRef} type="file" accept="image/*,.pdf" onChange={e => handleFileUpload(e, "id")} className="hidden" />
-                  <button type="button" onClick={() => idRef.current?.click()}
-                    className={`w-full border-2 border-dashed py-6 text-center transition-all duration-300 ${idImageUrl ? "border-[#c8a84b]/60 bg-[#c8a84b]/5" : "border-foreground/15 hover:border-foreground/30"}`}>
-                    {idImageUrl ? (
-                      <span className="text-sm text-foreground/70">✓ {idFileName}</span>
-                    ) : (
-                      <span className="text-sm text-foreground/40">Click to upload National ID (image or PDF)</span>
-                    )}
-                  </button>
-                </div>
-
-                {/* License Upload */}
-                <div>
-                  <label className="text-[10px] uppercase tracking-[0.25em] text-foreground/50 block mb-3">Driver's License · Photo Upload</label>
-                  <input ref={licenseRef} type="file" accept="image/*,.pdf" onChange={e => handleFileUpload(e, "license")} className="hidden" />
-                  <button type="button" onClick={() => licenseRef.current?.click()}
-                    className={`w-full border-2 border-dashed py-6 text-center transition-all duration-300 ${licenseImageUrl ? "border-[#c8a84b]/60 bg-[#c8a84b]/5" : "border-foreground/15 hover:border-foreground/30"}`}>
-                    {licenseImageUrl ? (
-                      <span className="text-sm text-foreground/70">✓ {licenseFileName}</span>
-                    ) : (
-                      <span className="text-sm text-foreground/40">Click to upload Driver's License (image or PDF)</span>
-                    )}
-                  </button>
-                </div>
-
-                {error && <p className="text-red-500 text-xs">{error}</p>}
-                <p className="text-xs text-foreground/30 leading-relaxed">
-                  Your documents are stored securely and only accessible to Pakinda Limited staff for verification purposes.
-                </p>
-                <button type="submit" disabled={loading} className="w-full btn-vault disabled:opacity-40">
-                  {loading ? "Creating account…" : "Create Account & Continue →"}
+                <button type="submit" disabled={loading} className="w-full btn-vault mt-2 disabled:opacity-40">
+                  {loading ? "Creating account…" : "Create Account →"}
                 </button>
               </form>
             </>
