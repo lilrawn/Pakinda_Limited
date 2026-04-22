@@ -21,10 +21,12 @@ export interface Booking {
   userIdImageUrl: string; userLicenseImageUrl: string;
   startDate: string; endDate: string; numDays: number;
   pricePerDay: number; totalPrice: number;
-  paymentMethod: PaymentMethod; paymentRef: string;
+  paymentMethod?: PaymentMethod | null; paymentRef?: string | null;
   status: BookingStatus; createdAt: string;
   returnedAt?: string; returnCondition?: string; returnNotes?: string; adminNotes?: string;
   pickupLocation: string;
+  verificationStatus: "pending" | "approved" | "rejected";
+  verificationNotes?: string | null;
 }
 export interface ServiceRecord {
   carId: string; lastServiceDate: string; nextServiceDate: string; serviceNotes: string;
@@ -41,6 +43,15 @@ export interface MarketListing {
 export interface AppNotification {
   id: string; userId: string; type: string;
   title: string; message: string; read: boolean; createdAt: string;
+}
+export interface Message {
+  id: string;
+  bookingId: string;
+  senderId: string;
+  senderRole: "client" | "admin";
+  body: string;
+  readByRecipient: boolean;
+  createdAt: string;
 }
 export interface SignupData {
   name: string; email: string; phone: string; password: string;
