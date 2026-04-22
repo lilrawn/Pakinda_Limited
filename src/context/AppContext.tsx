@@ -264,14 +264,14 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const createBooking = useCallback(async(b:Omit<Booking,"id"|"createdAt">)=>{
     const booking:Booking={...b,id:uid(),createdAt:new Date().toISOString()};
     if(ready){
-      const {data}=await supabase.from("bookings").insert({car_id:b.carId,car_name:b.carName,car_slug:b.carSlug,user_id:b.userId,user_name:b.userName,user_email:b.userEmail,user_phone:b.userPhone,user_id_number:b.userIdNumber,user_license_number:b.userLicenseNumber,user_id_image_url:b.userIdImageUrl,user_license_image_url:b.userLicenseImageUrl,start_date:b.startDate,end_date:b.endDate,num_days:b.numDays,price_per_day:b.pricePerDay,total_price:b.totalPrice,payment_method:b.paymentMethod,payment_ref:b.paymentRef,status:b.status,pickup_location:b.pickupLocation}).select().single();
+      const {data}=await supabase.from("bookings").insert({car_id:b.carId,car_name:b.carName,car_slug:b.carSlug,user_id:b.userId,user_name:b.userName,user_email:b.userEmail,user_phone:b.userPhone,user_id_number:b.userIdNumber,user_license_number:b.userLicenseNumber,user_id_image_url:b.userIdImageUrl,user_license_image_url:b.userLicenseImageUrl,start_date:b.startDate,end_date:b.endDate,num_days:b.numDays,price_per_day:b.pricePerDay,total_price:b.totalPrice,payment_method:b.paymentMethod||null,payment_ref:b.paymentRef||null,status:b.status,pickup_location:b.pickupLocation,verification_status:b.verificationStatus||"pending"}).select().single();
       if(data){
         const saved=mapBooking(data); setBookings(p=>[saved,...p]);
-        await createInAppNotification("Pakinda","New Booking",`${b.userName} booked ${b.carName} · KES ${b.totalPrice.toLocaleString()}·${b.startDate}→${b.endDate}`,"booking");
-        await sendNotification({type:"email",to:"pakindalimited@gmail.com",subject:`New Booking: ${b.carName}`,message:`Client: ${b.userName}\nCar: ${b.carName}\nDates: ${b.startDate}→${b.endDate}\nAmount: KES ${b.totalPrice.toLocaleString()}\nPayment: ${b.paymentMethod}\nPickup: ${b.pickupLocation}\nID: ${b.userIdNumber}\nLicense: ${b.userLicenseNumber}`});
+        await createInAppNotification("Pakinda","New Booking · Verify Documents",`${b.userName} booked ${b.carName} · KES ${b.totalPrice.toLocaleString()} · ${b.startDate}→${b.endDate}. Documents pending verification.`,"booking");
+        await sendNotification({type:"email",to:"pakindalimited@gmail.com",subject:`New Booking — Verify: ${b.carName}`,message:`Client: ${b.userName}\nCar: ${b.carName}\nDates: ${b.startDate}→${b.endDate}\nAmount: KES ${b.totalPrice.toLocaleString()}\nPickup: ${b.pickupLocation}\nID: ${b.userIdNumber}\nLicense: ${b.userLicenseNumber}\n\nReview documents and accept/reject in the admin dashboard, then send the client payment instructions via the booking chat.`});
         await sendNotification({type:"sms",to:"+254706504698",message:`New booking: ${b.userName} · ${b.carName} · ${b.startDate}→${b.endDate} · KES ${b.totalPrice.toLocaleString()}`});
         await sendNotification({type:"whatsapp",to:"+254706504698",message:`🚗 *New Booking*\n${b.userName}\n${b.carName}\n${b.startDate}→${b.endDate}\nKES ${b.totalPrice.toLocaleString()}`});
-        await sendNotification({type:"email",to:b.userEmail,subject:"Booking Confirmed · Pakinda Limited",message:`Dear ${b.userName},\n\nYour booking for ${b.carName} is confirmed.\n\nDates: ${b.startDate}→${b.endDate}\nTotal: KES ${b.totalPrice.toLocaleString()}\nRef: ${saved.id.slice(0,8).toUpperCase()}\n\nWe'll contact you within 2 hours.`});
+        await sendNotification({type:"email",to:b.userEmail,subject:"Booking Received · Pakinda Limited",message:`Dear ${b.userName},\n\nWe've received your booking request for ${b.carName}.\n\nDates: ${b.startDate}→${b.endDate}\nTotal: KES ${b.totalPrice.toLocaleString()}\nRef: ${saved.id.slice(0,8).toUpperCase()}\n\nOur team is verifying your documents. Once approved, we'll contact you on the booking chat with payment instructions. You'll receive a notification.`});
         return saved;
       }
     }
@@ -279,7 +279,19 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   },[ready]);
 
   const updateBooking = useCallback(async(id:string,d:Partial<Booking>)=>{
-    if(ready) await supabase.from("bookings").update({status:d.status,returned_at:d.returnedAt,return_condition:d.returnCondition,return_notes:d.returnNotes,admin_notes:d.adminNotes}).eq("id",id);
+    if(ready){
+      const upd:Record<string,unknown>={};
+      if(d.status!==undefined) upd.status=d.status;
+      if(d.returnedAt!==undefined) upd.returned_at=d.returnedAt;
+      if(d.returnCondition!==undefined) upd.return_condition=d.returnCondition;
+      if(d.returnNotes!==undefined) upd.return_notes=d.returnNotes;
+      if(d.adminNotes!==undefined) upd.admin_notes=d.adminNotes;
+      if(d.verificationStatus!==undefined) upd.verification_status=d.verificationStatus;
+      if(d.verificationNotes!==undefined) upd.verification_notes=d.verificationNotes;
+      if(d.paymentMethod!==undefined) upd.payment_method=d.paymentMethod;
+      if(d.paymentRef!==undefined) upd.payment_ref=d.paymentRef;
+      if(Object.keys(upd).length>0) await supabase.from("bookings").update(upd).eq("id",id);
+    }
     setBookings(p=>p.map(b=>b.id===id?{...b,...d}:b));
   },[ready]);
 
