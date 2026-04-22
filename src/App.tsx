@@ -9,6 +9,7 @@ import FleetDetail from "./pages/FleetDetail.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
 import CarMarket from "./pages/market/CarMarket.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
+import MyBookings from "./pages/MyBookings.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const AppRoutes = () => (
       <Route path="/fleet/:slug" element={<FleetDetail />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/market" element={<CarMarket />} />
+      <Route path="/account/bookings" element={<MyBookings />} />
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
