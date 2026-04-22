@@ -170,17 +170,6 @@ const AuthPage = () => {
               <h1 className="font-display text-3xl mb-2">Create your account.</h1>
               <p className="text-foreground/50 text-sm mb-8">Step 1 of 2 — Personal details</p>
 
-              <button onClick={handleGoogle} className="w-full flex items-center justify-center gap-3 border border-foreground/15 py-3.5 mb-6 text-sm text-foreground/70 hover:border-foreground/40 hover:text-foreground transition-all duration-300">
-                <GoogleIcon />
-                Continue with Google
-              </button>
-
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex-1 h-px bg-foreground/10" />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-foreground/30">or</span>
-                <div className="flex-1 h-px bg-foreground/10" />
-              </div>
-
               <form onSubmit={handleSignUpStep1} className="space-y-5">
                 <Field label="Full Name" value={name} onChange={setName} placeholder="e.g. Grace Wanjiku" />
                 <Field label="Email Address" type="email" value={signupEmail} onChange={setSignupEmail} placeholder="you@example.com" />
