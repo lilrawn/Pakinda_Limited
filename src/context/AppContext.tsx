@@ -332,8 +332,79 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const unreadCount=notifications.filter(n=>!n.read).length;
 
+  // ── Messages ─────────────────────────────────────────────────────────────────
+  const loadBookingMessages = useCallback(async(bookingId:string)=>{
+    if(!ready) return;
+    const {data} = await supabase.from("messages").select("*").eq("booking_id",bookingId).order("created_at",{ascending:true});
+    if(data){
+      const mapped:Message[] = data.map(m=>({id:m.id,bookingId:m.booking_id,senderId:m.sender_id,senderRole:m.sender_role,body:m.body,readByRecipient:m.read_by_recipient,createdAt:m.created_at}));
+      setMessages(prev=>{
+        const without = prev.filter(p=>p.bookingId!==bookingId);
+        return [...without, ...mapped];
+      });
+    }
+  },[ready]);
+
+  const sendMessage = useCallback(async(bookingId:string,body:string)=>{
+    if(!currentUser||!body.trim()) return;
+    if(ready){
+      const {data,error} = await supabase.from("messages").insert({
+        booking_id:bookingId,
+        sender_id:currentUser.id,
+        sender_role:currentUser.role,
+        body:body.trim(),
+      }).select().single();
+      if(error){ console.warn("[messages] send failed",error); return; }
+      if(data){
+        const m:Message = {id:data.id,bookingId:data.booking_id,senderId:data.sender_id,senderRole:data.sender_role,body:data.body,readByRecipient:data.read_by_recipient,createdAt:data.created_at};
+        setMessages(prev=>prev.find(p=>p.id===m.id)?prev:[...prev,m]);
+      }
+    } else {
+      const m:Message = {id:uid(),bookingId,senderId:currentUser.id,senderRole:currentUser.role,body:body.trim(),readByRecipient:false,createdAt:new Date().toISOString()};
+      setMessages(prev=>[...prev,m]);
+    }
+  },[ready,currentUser]);
+
+  const subscribeBookingMessages = useCallback((bookingId:string)=>{
+    if(!ready) return ()=>{};
+    const ch = supabase.channel(`messages-${bookingId}`)
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`booking_id=eq.${bookingId}`},
+        (p)=>{
+          const r = p.new as Record<string,unknown>;
+          const m:Message = {id:r.id as string,bookingId:r.booking_id as string,senderId:r.sender_id as string,senderRole:r.sender_role as "client"|"admin",body:r.body as string,readByRecipient:r.read_by_recipient as boolean,createdAt:r.created_at as string};
+          setMessages(prev=>prev.find(x=>x.id===m.id)?prev:[...prev,m]);
+        })
+      .subscribe();
+    return ()=>{ supabase.removeChannel(ch); };
+  },[ready]);
+
+  const getBookingMessages = useCallback((bookingId:string)=>
+    messages.filter(m=>m.bookingId===bookingId).sort((a,b)=>a.createdAt.localeCompare(b.createdAt))
+  ,[messages]);
+
+  const markBookingMessagesRead = useCallback(async(bookingId:string)=>{
+    if(!ready||!currentUser) return;
+    // Mark messages from the OTHER side as read
+    const otherRole = currentUser.role==="admin" ? "client" : "admin";
+    await supabase.from("messages").update({read_by_recipient:true})
+      .eq("booking_id",bookingId).eq("sender_role",otherRole).eq("read_by_recipient",false);
+    setMessages(prev=>prev.map(m=>m.bookingId===bookingId&&m.senderRole===otherRole?{...m,readByRecipient:true}:m));
+  },[ready,currentUser]);
+
+  const unreadMessagesByBooking = (() => {
+    const out:Record<string,number> = {};
+    if(!currentUser) return out;
+    const otherRole = currentUser.role==="admin" ? "client" : "admin";
+    for(const m of messages){
+      if(!m.readByRecipient && m.senderRole===otherRole){
+        out[m.bookingId] = (out[m.bookingId]||0)+1;
+      }
+    }
+    return out;
+  })();
+
   return (
-    <Ctx.Provider value={{currentUser,users,login,loginWithGoogle,signup,logout,updateUser,fleetCars,addCar,updateCar,removeCar,getBookedDates,bookings,createBooking,updateBooking,getCarBookings,getUserBookings,updateServiceRecord,getRevenue,getCarRevenue,marketListings,submitMarketListing,updateMarketListing,notifications,markNotificationRead,unreadCount,supabaseReady:ready}}>
+    <Ctx.Provider value={{currentUser,users,login,loginWithGoogle,signup,logout,updateUser,fleetCars,addCar,updateCar,removeCar,getBookedDates,bookings,createBooking,updateBooking,getCarBookings,getUserBookings,updateServiceRecord,getRevenue,getCarRevenue,marketListings,submitMarketListing,updateMarketListing,notifications,markNotificationRead,unreadCount,messages,loadBookingMessages,sendMessage,subscribeBookingMessages,getBookingMessages,unreadMessagesByBooking,markBookingMessagesRead,supabaseReady:ready}}>
       {children}
     </Ctx.Provider>
   );
@@ -342,5 +413,5 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 function mapUser(u:Record<string,unknown>):User{ return {id:u.id as string,name:u.name as string,email:u.email as string,phone:(u.phone as string)||"",idNumber:(u.id_number as string)||"",licenseNumber:(u.license_number as string)||"",idImageUrl:(u.id_image_url as string)||"",licenseImageUrl:(u.license_image_url as string)||"",role:(u.role as "client"|"admin")||"client",createdAt:u.created_at as string}; }
 function mapCar(c:Record<string,unknown>):FleetCar{ return {id:c.id as string,slug:c.slug as string,name:c.name as string,series:(c.series as string)||"",category:c.category as FleetCar["category"],image:(c.image_url as string)||"",imageUrl:(c.image_url as string)||"",spec:{hp:(c.spec_hp as string)||"",top:(c.spec_top as string)||"",zero:(c.spec_zero as string)||""},pricePerDay:c.price_per_day as number,price:`KES ${(c.price_per_day as number)?.toLocaleString()}`,description:(c.description as string)||"",features:(c.features as string[])||[],available:c.available as boolean}; }
-function mapBooking(b:Record<string,unknown>):Booking{ return {id:b.id as string,carId:b.car_id as string,carName:b.car_name as string,carSlug:b.car_slug as string,userId:b.user_id as string,userName:b.user_name as string,userEmail:b.user_email as string,userPhone:b.user_phone as string,userIdNumber:b.user_id_number as string,userLicenseNumber:b.user_license_number as string,userIdImageUrl:b.user_id_image_url as string,userLicenseImageUrl:b.user_license_image_url as string,startDate:b.start_date as string,endDate:b.end_date as string,numDays:b.num_days as number,pricePerDay:b.price_per_day as number,totalPrice:b.total_price as number,paymentMethod:b.payment_method as PaymentMethod,paymentRef:b.payment_ref as string,status:b.status as BookingStatus,createdAt:b.created_at as string,returnedAt:(b.returned_at as string)||undefined,returnCondition:(b.return_condition as string)||undefined,returnNotes:(b.return_notes as string)||undefined,adminNotes:(b.admin_notes as string)||undefined,pickupLocation:b.pickup_location as string}; }
+function mapBooking(b:Record<string,unknown>):Booking{ return {id:b.id as string,carId:b.car_id as string,carName:b.car_name as string,carSlug:b.car_slug as string,userId:b.user_id as string,userName:b.user_name as string,userEmail:b.user_email as string,userPhone:b.user_phone as string,userIdNumber:b.user_id_number as string,userLicenseNumber:b.user_license_number as string,userIdImageUrl:b.user_id_image_url as string,userLicenseImageUrl:b.user_license_image_url as string,startDate:b.start_date as string,endDate:b.end_date as string,numDays:b.num_days as number,pricePerDay:b.price_per_day as number,totalPrice:b.total_price as number,paymentMethod:(b.payment_method as PaymentMethod)||null,paymentRef:(b.payment_ref as string)||null,status:b.status as BookingStatus,createdAt:b.created_at as string,returnedAt:(b.returned_at as string)||undefined,returnCondition:(b.return_condition as string)||undefined,returnNotes:(b.return_notes as string)||undefined,adminNotes:(b.admin_notes as string)||undefined,pickupLocation:b.pickup_location as string,verificationStatus:((b.verification_status as "pending"|"approved"|"rejected")||"pending"),verificationNotes:(b.verification_notes as string)||null}; }
 function mapListing(l:Record<string,unknown>):MarketListing{ return {id:l.id as string,sellerId:l.seller_id as string,sellerName:l.seller_name as string,sellerEmail:l.seller_email as string,sellerPhone:l.seller_phone as string,make:l.make as string,model:l.model as string,year:l.year as string,mileage:l.mileage as string,askingPrice:l.asking_price as number,description:l.description as string,imageUrls:(l.image_urls as string[])||[],status:l.status as ListingStatus,adminNotes:(l.admin_notes as string)||undefined,createdAt:l.created_at as string}; }
