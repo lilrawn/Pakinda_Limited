@@ -76,6 +76,8 @@ export type Database = {
           user_license_number: string | null
           user_name: string
           user_phone: string | null
+          verification_notes: string | null
+          verification_status: string
         }
         Insert: {
           admin_notes?: string | null
@@ -105,6 +107,8 @@ export type Database = {
           user_license_number?: string | null
           user_name: string
           user_phone?: string | null
+          verification_notes?: string | null
+          verification_status?: string
         }
         Update: {
           admin_notes?: string | null
@@ -134,6 +138,8 @@ export type Database = {
           user_license_number?: string | null
           user_name?: string
           user_phone?: string | null
+          verification_notes?: string | null
+          verification_status?: string
         }
         Relationships: [
           {
@@ -255,6 +261,44 @@ export type Database = {
           year?: string
         }
         Relationships: []
+      }
+      messages: {
+        Row: {
+          body: string
+          booking_id: string
+          created_at: string
+          id: string
+          read_by_recipient: boolean
+          sender_id: string
+          sender_role: string
+        }
+        Insert: {
+          body: string
+          booking_id: string
+          created_at?: string
+          id?: string
+          read_by_recipient?: boolean
+          sender_id: string
+          sender_role: string
+        }
+        Update: {
+          body?: string
+          booking_id?: string
+          created_at?: string
+          id?: string
+          read_by_recipient?: boolean
+          sender_id?: string
+          sender_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
