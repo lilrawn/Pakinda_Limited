@@ -393,7 +393,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_aal2: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "client"
