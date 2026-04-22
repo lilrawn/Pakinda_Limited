@@ -291,9 +291,31 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
       if(d.paymentMethod!==undefined) upd.payment_method=d.paymentMethod;
       if(d.paymentRef!==undefined) upd.payment_ref=d.paymentRef;
       if(Object.keys(upd).length>0) await supabase.from("bookings").update(upd).eq("id",id);
+      // Notify client on verification decision
+      if(d.verificationStatus==="approved"||d.verificationStatus==="rejected"){
+        const booking = bookings.find(b=>b.id===id);
+        if(booking){
+          await supabase.from("notifications").insert({
+            user_id: booking.userId,
+            type: "booking",
+            title: d.verificationStatus==="approved" ? "Booking Approved ✓" : "Booking Documents Rejected",
+            message: d.verificationStatus==="approved"
+              ? `Your booking for ${booking.carName} has been approved. Open the chat — the admin will send payment instructions.`
+              : `Your documents were rejected. ${d.verificationNotes||"Please contact the admin via chat."}`,
+            read: false,
+          });
+          await sendNotification({
+            type:"email", to: booking.userEmail,
+            subject: d.verificationStatus==="approved" ? "Booking Approved · Pakinda Limited" : "Action required on your booking",
+            message: d.verificationStatus==="approved"
+              ? `Hi ${booking.userName},\n\nGood news — your booking for ${booking.carName} (${booking.startDate} → ${booking.endDate}) has been approved.\n\nThe admin will message you in the booking chat with payment methods. Open https://pakinda.co.ke/account/bookings to view.\n\n— Pakinda Limited`
+              : `Hi ${booking.userName},\n\nUnfortunately your documents for the booking of ${booking.carName} were rejected.\n\nReason: ${d.verificationNotes||"Not specified"}\n\nPlease open the booking chat to resolve.\n\n— Pakinda Limited`,
+          });
+        }
+      }
     }
     setBookings(p=>p.map(b=>b.id===id?{...b,...d}:b));
-  },[ready]);
+  },[ready,bookings]);
 
   const getCarBookings = useCallback((carId:string)=>bookings.filter(b=>b.carId===carId),[bookings]);
   const getUserBookings = useCallback((userId:string)=>bookings.filter(b=>b.userId===userId),[bookings]);
