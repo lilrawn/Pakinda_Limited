@@ -6,7 +6,7 @@ import carHero from "@/assets/car-hero.png";
 type Mode = "signin" | "signup";
 
 const AuthPage = () => {
-  const { login, loginWithGoogle, signup } = useApp();
+  const { login, signup } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = (location.state as { returnTo?: string; carSlug?: string })?.returnTo || "/";
@@ -97,15 +97,6 @@ const AuthPage = () => {
         setStep(1);
       }
     })();
-  };
-
-  const handleGoogle = async () => {
-    setError(""); setLoading(true);
-    const result = await loginWithGoogle();
-    setLoading(false);
-    if (!result.success) { setError(result.error || "Google sign-in failed."); return; }
-    // OAuth typically redirects the browser; if we get here without redirect, navigate.
-    navigate(carSlug ? `/fleet/${carSlug}` : returnTo, { replace: true });
   };
 
   return (
