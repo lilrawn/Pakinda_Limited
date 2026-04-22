@@ -368,8 +368,8 @@ const BookingCard = ({booking:b,onUpdate}:{booking:Booking;onUpdate:(id:string,d
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <IR label="Client" value={b.userName}/> <IR label="Email" value={b.userEmail}/>
             <IR label="Phone" value={b.userPhone}/> <IR label="National ID" value={b.userIdNumber}/>
-            <IR label="License No." value={b.userLicenseNumber}/> <IR label="Payment" value={b.paymentMethod.replace("_"," ").toUpperCase()}/>
-            <IR label="Ref" value={b.paymentRef}/> <IR label="Pickup" value={b.pickupLocation}/>
+            <IR label="License No." value={b.userLicenseNumber}/> <IR label="Payment" value={(b.paymentMethod||"—").replace("_"," ").toUpperCase()}/>
+            <IR label="Ref" value={b.paymentRef||"—"}/> <IR label="Pickup" value={b.pickupLocation}/>
             <IR label="Booked" value={fmtDT(b.createdAt)}/>
           </div>
           {/* Doc previews */}
@@ -440,7 +440,7 @@ const HistoryTab = () => {
                       <IR label="Full Name" value={b.userName}/> <IR label="Email" value={b.userEmail}/>
                       <IR label="Phone" value={b.userPhone}/> <IR label="National ID" value={b.userIdNumber}/>
                       <IR label="License No." value={b.userLicenseNumber}/> <IR label="Pickup Location" value={b.pickupLocation}/>
-                      <IR label="Payment Method" value={b.paymentMethod.replace("_"," ").toUpperCase()}/> <IR label="Payment Ref" value={b.paymentRef}/>
+                      <IR label="Payment Method" value={(b.paymentMethod||"—").replace("_"," ").toUpperCase()}/> <IR label="Payment Ref" value={b.paymentRef||"—"}/>
                       <IR label="Booking Date" value={fmtDT(b.createdAt)}/>
                     </div>
 
