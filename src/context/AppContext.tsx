@@ -86,6 +86,14 @@ interface AppContextType {
   notifications: AppNotification[];
   markNotificationRead(id: string): Promise<void>;
   unreadCount: number;
+  // Messaging
+  messages: Message[];
+  loadBookingMessages(bookingId: string): Promise<void>;
+  sendMessage(bookingId: string, body: string): Promise<void>;
+  subscribeBookingMessages(bookingId: string): () => void;
+  getBookingMessages(bookingId: string): Message[];
+  unreadMessagesByBooking: Record<string, number>;
+  markBookingMessagesRead(bookingId: string): Promise<void>;
   supabaseReady: boolean;
 }
 
@@ -113,6 +121,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [bookings, setBookings] = useState<Booking[]>(()=>load("dh_bookings",[]));
   const [marketListings, setMarket] = useState<MarketListing[]>(()=>load("dh_market",[]));
   const [notifications, setNotifs] = useState<AppNotification[]>(()=>load("dh_notifs",[]));
+  const [messages, setMessages] = useState<Message[]>([]);
 
   useEffect(()=>{ save("dh_user",currentUser); },[currentUser]);
   useEffect(()=>{ save("dh_fleet",fleetCars); },[fleetCars]);
