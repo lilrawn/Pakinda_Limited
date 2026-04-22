@@ -29,7 +29,6 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-8 uppercase text-[10px] tracking-[0.25em] font-medium">
           <a href="/#consign" className="text-foreground/60 hover:text-foreground transition-colors">Sell Your Car</a>
           {currentUser?.role === "admin" && <Link to="/admin" className="text-steel hover:text-foreground transition-colors">Admin ↗</Link>}
-          {currentUser && <Link to="/account/mfa" className="text-foreground/60 hover:text-foreground transition-colors">2FA</Link>}
 
           {/* Notification bell */}
           {currentUser && (
