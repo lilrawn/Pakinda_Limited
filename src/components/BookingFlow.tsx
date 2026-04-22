@@ -1,8 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
-import { FleetCar, PaymentMethod } from "@/context/AppContext";
-import { initiateMpesaSTKPush, initFlutterwavePayment, generateBankTransferInstructions } from "@/lib/payments";
+import { FleetCar } from "@/context/AppContext";
 
 interface BookingFlowProps { car: FleetCar; onClose: () => void; }
 
@@ -22,8 +21,8 @@ const BookingFlow=({car,onClose}:BookingFlowProps)=>{
 
   const isBooked=(d:Date)=>{const k=toKey(d);return bookedRanges.some(r=>k>=r.start&&k<=r.end);};
 
-  type Step="docs"|"calendar"|"payment"|"confirm"|"success";
-  // If user has no docs, start at docs step
+  type Step="docs"|"calendar"|"review"|"success";
+  // Always require docs step (per booking documents are mandatory)
   const needsDocs=!currentUser?.idImageUrl||!currentUser?.licenseImageUrl||!currentUser?.idNumber||!currentUser?.licenseNumber||!currentUser?.name||!currentUser?.phone;
   const [step,setStep]=useState<Step>(needsDocs?"docs":"calendar");
 
@@ -33,15 +32,15 @@ const BookingFlow=({car,onClose}:BookingFlowProps)=>{
   const [docEmail,setDocEmail]=useState(currentUser?.email||"");
   const [docIdNumber,setDocIdNumber]=useState(currentUser?.idNumber||"");
   const [docLicNumber,setDocLicNumber]=useState(currentUser?.licenseNumber||"");
-  const [idFile,setIdFile]=useState<File|null>(null); const [idPreview,setIdPreview]=useState(currentUser?.idImageUrl||"");
-  const [licFile,setLicFile]=useState<File|null>(null); const [licPreview,setLicPreview]=useState(currentUser?.licenseImageUrl||"");
+  const [idPreview,setIdPreview]=useState(currentUser?.idImageUrl||"");
+  const [licPreview,setLicPreview]=useState(currentUser?.licenseImageUrl||"");
   const [docErrors,setDocErrors]=useState<Record<string,string>>({});
   const [savingDocs,setSavingDocs]=useState(false);
   const idRef=useRef<HTMLInputElement>(null); const licRef=useRef<HTMLInputElement>(null);
 
   const handleFileChange=(e:React.ChangeEvent<HTMLInputElement>,type:"id"|"lic")=>{
     const f=e.target.files?.[0]; if(!f) return;
-    const r=new FileReader(); r.onload=ev=>{const d=ev.target?.result as string; if(type==="id"){setIdFile(f);setIdPreview(d);}else{setLicFile(f);setLicPreview(d);}};
+    const r=new FileReader(); r.onload=ev=>{const d=ev.target?.result as string; if(type==="id"){setIdPreview(d);}else{setLicPreview(d);}};
     r.readAsDataURL(f);
   };
 
@@ -82,30 +81,13 @@ const BookingFlow=({car,onClose}:BookingFlowProps)=>{
 
   const cells:(Date|null)[]=[]; for(let i=0;i<firstDay;i++) cells.push(null); for(let i=1;i<=daysInMonth;i++) cells.push(new Date(viewDate.year,viewDate.month,i));
 
-  // Payment
-  const [paymentMethod,setPaymentMethod]=useState<PaymentMethod>("mpesa");
-  const [mpesaNumber,setMpesaNumber]=useState(currentUser?.phone||"");
-  const [processing,setProcessing]=useState(false);
+  const [submitting,setSubmitting]=useState(false);
   const [bookingRef,setBookingRef]=useState("");
-  const [bankInfo,setBankInfo]=useState<ReturnType<typeof generateBankTransferInstructions>|null>(null);
 
-  const handleConfirmPayment=async()=>{
+  const handleSubmitBooking=async()=>{
     if(!currentUser||!startDate||!endDate) return;
-    const ref=`DH-${Date.now().toString(36).toUpperCase()}`;
-    setProcessing(true);
-
+    setSubmitting(true);
     try{
-      // Payment processing
-      if(paymentMethod==="mpesa"){
-        await initiateMpesaSTKPush({phone:mpesaNumber,amount:totalPrice,bookingRef:ref});
-      } else if(paymentMethod==="card"){
-        const res=await initFlutterwavePayment({amount:totalPrice,email:currentUser.email,name:currentUser.name,phone:currentUser.phone,bookingRef:ref});
-        if(!res.success){setProcessing(false);return;}
-      } else {
-        const info=generateBankTransferInstructions(ref,totalPrice);
-        setBankInfo(info);
-      }
-
       const booking=await createBooking({
         carId:car.id,carName:car.name,carSlug:car.slug,
         userId:currentUser.id,userName:currentUser.name||docName,
@@ -113,12 +95,13 @@ const BookingFlow=({car,onClose}:BookingFlowProps)=>{
         userIdNumber:currentUser.idNumber||docIdNumber,userLicenseNumber:currentUser.licenseNumber||docLicNumber,
         userIdImageUrl:currentUser.idImageUrl||idPreview,userLicenseImageUrl:currentUser.licenseImageUrl||licPreview,
         startDate:toKey(startDate),endDate:toKey(endDate),numDays,pricePerDay:car.pricePerDay,totalPrice,
-        paymentMethod,paymentRef:ref,status:"active",pickupLocation,
+        paymentMethod:null,paymentRef:null,status:"pending",pickupLocation,
+        verificationStatus:"pending",verificationNotes:null,
       });
       setBookingRef(booking.id);
       setStep("success");
     } catch(err){ console.error(err); }
-    finally{ setProcessing(false); }
+    finally{ setSubmitting(false); }
   };
 
   return(
@@ -129,7 +112,7 @@ const BookingFlow=({car,onClose}:BookingFlowProps)=>{
         <div className="sticky top-0 z-10 flex items-center justify-between px-8 py-5 border-b border-white/10 bg-[#0f0e0d]">
           <div>
             <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-0.5">
-              {step==="docs"?"Step 1 · Your Details & Documents":step==="calendar"?"Step 2 · Select Dates":step==="payment"?"Step 3 · Payment":step==="confirm"?"Step 4 · Confirm":"Booking Confirmed"}
+              {step==="docs"?"Step 1 · Your Details & Documents":step==="calendar"?"Step 2 · Select Dates":step==="review"?"Step 3 · Review & Submit":"Booking Submitted"}
             </p>
             <h2 className="font-display text-lg text-white">{car.name}</h2>
           </div>
@@ -141,7 +124,7 @@ const BookingFlow=({car,onClose}:BookingFlowProps)=>{
           <div className="p-8">
             <div className="bg-[#c8a84b]/10 border border-[#c8a84b]/30 rounded-xl p-4 mb-6">
               <p className="text-[#c8a84b] text-sm font-medium mb-1">Documents Required</p>
-              <p className="text-white/50 text-xs leading-relaxed">Kenyan law requires ID and driver's license verification before any vehicle hire. Your documents are stored securely and only visible to Drive Harambee staff.</p>
+              <p className="text-white/50 text-xs leading-relaxed">Kenyan law requires ID and driver's licence verification before any vehicle hire. Our admin reviews these documents and contacts you privately with payment instructions once approved.</p>
             </div>
 
             <div className="space-y-5 mb-6">
@@ -230,62 +213,34 @@ const BookingFlow=({car,onClose}:BookingFlowProps)=>{
                 {startDate&&!endDate&&<span>From <span className="text-white">{fmtDate(startDate)}</span> — pick return</span>}
                 {startDate&&endDate&&<span className="text-white">{fmtDate(startDate)} → {fmtDate(endDate)}</span>}
               </div>
-              <button disabled={!startDate||!endDate} onClick={()=>setStep("payment")} className="px-6 py-2.5 text-black text-[10px] uppercase tracking-[0.25em] font-semibold disabled:opacity-30 transition-colors rounded" style={{background:"#c8a84b"}}>Continue →</button>
+              <button disabled={!startDate||!endDate} onClick={()=>setStep("review")} className="px-6 py-2.5 text-black text-[10px] uppercase tracking-[0.25em] font-semibold disabled:opacity-30 transition-colors rounded" style={{background:"#c8a84b"}}>Review →</button>
             </div>
           </div>
         )}
 
-        {/* ── STEP: Payment ── */}
-        {step==="payment"&&(
+        {/* ── STEP: Review & Submit ── */}
+        {step==="review"&&(
           <div className="p-8">
-            <div className="flex justify-between items-start bg-white/5 rounded-xl p-5 mb-8">
-              <div><p className="text-[10px] uppercase tracking-[0.25em] text-white/40 mb-1">Booking Summary</p><p className="text-white text-sm">{startDate&&fmtDate(startDate)} → {endDate&&fmtDate(endDate)}</p><p className="text-white/40 text-xs mt-1">{numDays} day{numDays>1?"s":""} · {pickupLocation}</p></div>
-              <div className="text-right"><p className="text-[10px] uppercase tracking-[0.25em] text-white/40 mb-1">Total</p><p className="font-display text-2xl" style={{color:"#c8a84b"}}>KES {totalPrice.toLocaleString()}</p></div>
-            </div>
-            <p className="text-[10px] uppercase tracking-[0.25em] text-white/40 mb-4">Select Payment Method</p>
-            <div className="grid grid-cols-3 gap-3 mb-8">
-              {([{id:"mpesa",l:"M-Pesa",icon:"📱"},{id:"bank_transfer",l:"Bank Transfer",icon:"🏦"},{id:"card",l:"Card",icon:"💳"}] as {id:PaymentMethod;l:string;icon:string}[]).map(m=>(
-                <button key={m.id} onClick={()=>setPaymentMethod(m.id)} className={`flex flex-col items-center py-4 border rounded-xl transition-all ${paymentMethod===m.id?"border-[#c8a84b] bg-[#c8a84b]/10":"border-white/10 hover:border-white/25"}`}>
-                  <span className="text-2xl mb-1">{m.icon}</span><span className="text-[10px] uppercase tracking-[0.2em] text-white/60">{m.l}</span>
-                </button>
-              ))}
-            </div>
-            {paymentMethod==="mpesa"&&<div className="space-y-4"><PF label="M-Pesa Number" value={mpesaNumber} onChange={setMpesaNumber} placeholder="+254 7XX XXX XXX"/><div className="bg-green-900/20 border border-green-500/20 rounded-lg p-4 text-sm text-green-300/80"><strong className="block mb-1">How it works:</strong>Enter your Safaricom number. You'll receive an STK push to pay <strong>KES {totalPrice.toLocaleString()}</strong>. Enter your M-Pesa PIN to confirm.</div></div>}
-            {paymentMethod==="bank_transfer"&&(
-              <div className="bg-white/5 rounded-lg p-5 text-sm">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 mb-3">Transfer Details</p>
-                <div className="space-y-2 text-white/70">
-                  <p><span className="text-white/40">Bank:</span> Equity Bank Kenya</p>
-                  <p><span className="text-white/40">Account Name:</span> Pakinda Limited</p>
-                  <p><span className="text-white/40">Account No:</span> 0123456789012</p>
-                  <p><span className="text-white/40">Amount:</span> <span className="font-semibold" style={{color:"#c8a84b"}}>KES {totalPrice.toLocaleString()}</span></p>
-                </div>
-              </div>
-            )}
-            {paymentMethod==="card"&&<div className="text-sm text-white/50 text-center py-8">Secure card payment powered by Flutterwave. You'll be redirected to complete payment.</div>}
-            <div className="flex items-center gap-4 mt-8">
-              <button onClick={()=>setStep("calendar")} className="text-white/40 hover:text-white text-[10px] uppercase tracking-[0.25em] transition-colors">← Back</button>
-              <button onClick={()=>setStep("confirm")} className="flex-1 py-4 text-black text-[11px] uppercase tracking-[0.25em] font-semibold" style={{background:"#c8a84b"}}>Review Booking →</button>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP: Confirm ── */}
-        {step==="confirm"&&(
-          <div className="p-8">
-            <h3 className="font-display text-xl text-white mb-6">Confirm Your Reservation</h3>
-            <div className="space-y-4 mb-8">
-              {[["Vehicle",car.name],["Check-in",startDate?fmtDate(startDate):""],["Return",endDate?fmtDate(endDate):""],["Duration",`${numDays} day${numDays>1?"s":""}`],["Delivery",pickupLocation],["Payment",paymentMethod==="mpesa"?`M-Pesa · ${mpesaNumber}`:paymentMethod==="bank_transfer"?"Bank Transfer":"Card · Flutterwave"]].map(([l,v])=>(
+            <h3 className="font-display text-xl text-white mb-6">Review Your Booking</h3>
+            <div className="space-y-4 mb-6">
+              {[["Vehicle",car.name],["Check-in",startDate?fmtDate(startDate):""],["Return",endDate?fmtDate(endDate):""],["Duration",`${numDays} day${numDays>1?"s":""}`],["Delivery",pickupLocation]].map(([l,v])=>(
                 <div key={l} className="flex justify-between"><span className="text-white/50 text-sm">{l}</span><span className="text-white text-sm font-medium">{v}</span></div>
               ))}
               <div className="h-px bg-white/10 my-2"/>
-              <div className="flex justify-between"><span className="text-white/50 text-sm">Total Payable</span><span className="font-display text-2xl" style={{color:"#c8a84b"}}>KES {totalPrice.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-white/50 text-sm">Estimated Total</span><span className="font-display text-2xl" style={{color:"#c8a84b"}}>KES {totalPrice.toLocaleString()}</span></div>
             </div>
-            <div className="bg-white/5 rounded-lg p-4 mb-6 text-xs text-white/40 leading-relaxed">By confirming, you agree to Pakinda Limited's hire terms. The vehicle will be delivered fully insured. Any damage beyond normal wear will be assessed on return.</div>
-            <div className="flex gap-4">
-              <button onClick={()=>setStep("payment")} className="text-white/40 hover:text-white text-[10px] uppercase tracking-[0.25em] transition-colors">← Edit</button>
-              <button onClick={handleConfirmPayment} disabled={processing} className="flex-1 py-4 text-black text-[11px] uppercase tracking-[0.25em] font-semibold disabled:opacity-50" style={{background:"#c8a84b"}}>
-                {processing?"Processing…":`Confirm & Pay KES ${totalPrice.toLocaleString()} →`}
+            <div className="bg-white/5 rounded-xl p-5 mb-6 text-sm space-y-3">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">What happens next</p>
+              <ol className="text-white/60 text-xs leading-relaxed space-y-2 list-decimal list-inside">
+                <li>Your documents go to our admin for verification.</li>
+                <li>Once approved, the admin contacts you on the booking chat with payment methods (M-Pesa, Bank, Card).</li>
+                <li>You complete payment, share confirmation in the chat, and we deliver the vehicle.</li>
+              </ol>
+            </div>
+            <div className="flex items-center gap-4">
+              <button onClick={()=>setStep("calendar")} className="text-white/40 hover:text-white text-[10px] uppercase tracking-[0.25em] transition-colors">← Edit dates</button>
+              <button onClick={handleSubmitBooking} disabled={submitting} className="flex-1 py-4 text-black text-[11px] uppercase tracking-[0.25em] font-semibold disabled:opacity-50" style={{background:"#c8a84b"}}>
+                {submitting?"Submitting…":"Submit Booking Request →"}
               </button>
             </div>
           </div>
@@ -295,15 +250,17 @@ const BookingFlow=({car,onClose}:BookingFlowProps)=>{
         {step==="success"&&(
           <div className="p-8 text-center py-16">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6" style={{background:"rgba(200,168,75,0.2)"}}><span className="text-3xl" style={{color:"#c8a84b"}}>✓</span></div>
-            <h3 className="font-display text-2xl text-white mb-3">Booking Confirmed!</h3>
+            <h3 className="font-display text-2xl text-white mb-3">Request Submitted!</h3>
             <p className="text-white/40 text-sm mb-1">Ref: <span className="text-white font-mono">{bookingRef.slice(0,8).toUpperCase()}</span></p>
             <p className="text-white/40 text-sm mb-2">{car.name} · {startDate&&fmtDate(startDate)} → {endDate&&fmtDate(endDate)}</p>
-            <p className="font-display text-xl mb-8" style={{color:"#c8a84b"}}>KES {totalPrice.toLocaleString()}</p>
-            {bankInfo&&<div className="bg-white/5 rounded-xl p-4 mb-6 text-left text-xs text-white/60 space-y-1"><p className="text-white/40 uppercase tracking-widest text-[9px] mb-2">Bank Transfer Details</p>{bankInfo.instructions.map((i,n)=><p key={n}>• {i}</p>)}</div>}
-            <p className="text-white/30 text-xs mb-8">Confirmation sent to your email. We'll contact you on WhatsApp within 2 hours.</p>
+            <p className="font-display text-xl mb-6" style={{color:"#c8a84b"}}>Estimated KES {totalPrice.toLocaleString()}</p>
+            <div className="bg-white/5 rounded-xl p-5 mb-6 text-left text-sm">
+              <p className="text-[#c8a84b] text-xs uppercase tracking-widest mb-2">Awaiting verification</p>
+              <p className="text-white/60 text-xs leading-relaxed">Our admin is reviewing your documents. Once approved, they'll contact you privately on the booking chat with payment methods. You'll get a notification.</p>
+            </div>
             <div className="flex flex-col gap-3">
-              <button onClick={onClose} className="py-3 text-black text-[10px] uppercase tracking-[0.25em] font-semibold" style={{background:"#c8a84b"}}>Close</button>
-              <button onClick={()=>{onClose();navigate("/");}} className="py-3 text-white/40 text-[10px] uppercase tracking-[0.25em] hover:text-white transition-colors">Return to Fleet</button>
+              <button onClick={()=>{onClose();navigate("/account/bookings");}} className="py-3 text-black text-[10px] uppercase tracking-[0.25em] font-semibold" style={{background:"#c8a84b"}}>View My Bookings</button>
+              <button onClick={onClose} className="py-3 text-white/40 text-[10px] uppercase tracking-[0.25em] hover:text-white transition-colors">Close</button>
             </div>
           </div>
         )}
@@ -316,9 +273,6 @@ const DF=({label,value,onChange,placeholder,error,required}:{label:string;value:
   <div><label className="text-[10px] uppercase tracking-[0.25em] text-white/40 block mb-2">{label}{required&&<span className="text-red-400 ml-1">*</span>}</label>
   <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} className="w-full bg-transparent border-b outline-none py-3 text-white text-sm placeholder:text-white/20 transition-colors" style={{borderBottomColor:error?"rgba(239,68,68,0.6)":"rgba(255,255,255,0.15)"}}/>
   {error&&<p className="text-red-400 text-[10px] mt-1">{error}</p>}</div>
-);
-const PF=({label,value,onChange,placeholder}:{label:string;value:string;onChange:(v:string)=>void;placeholder?:string})=>(
-  <div><label className="text-[10px] uppercase tracking-[0.25em] text-white/40 block mb-2">{label}</label><input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} className="w-full bg-transparent border-b border-white/15 focus:border-[#c8a84b] outline-none py-3 text-white text-sm placeholder:text-white/20 transition-colors"/></div>
 );
 
 export default BookingFlow;
